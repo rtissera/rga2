@@ -39,10 +39,8 @@
 #include <asm/cacheflush.h>
 #include <linux/slab.h>
 #include <linux/fb.h>
-#include <linux/wakelock.h>
 #include <linux/scatterlist.h>
 #include <linux/version.h>
-#include <linux/rockchip_ion.h>
 #include <linux/debugfs.h>
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))

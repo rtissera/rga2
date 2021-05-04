@@ -28,7 +28,6 @@
 #include <asm/cacheflush.h>
 #include <linux/slab.h>
 #include <linux/fb.h>
-#include <linux/wakelock.h>
 #include <linux/version.h>
 
 #include "rga2_reg_info.h"
