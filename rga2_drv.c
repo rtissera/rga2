@@ -93,7 +93,7 @@ struct rga2_drvdata_t {
 	int irq;
 
 	struct delayed_work power_off_work;
-	struct wake_lock wake_lock;
+	struct wakeup_source wake_lock;
 	void (*rga_irq_callback)(int rga_retval);
 
 	struct clk *aclk_rga2;
@@ -633,7 +633,7 @@ static void rga2_power_on(void)
 	clk_prepare_enable(rga2_drvdata->clk_rga2);
 	clk_prepare_enable(rga2_drvdata->aclk_rga2);
 	clk_prepare_enable(rga2_drvdata->hclk_rga2);
-	wake_lock(&rga2_drvdata->wake_lock);
+	__pm_stay_awake(&rga2_drvdata->wake_lock);
 	rga2_service.enable = true;
 }
 
@@ -664,7 +664,7 @@ static void rga2_power_off(void)
 	clk_disable_unprepare(rga2_drvdata->pd_rga2);
 #endif
 
-	wake_unlock(&rga2_drvdata->wake_lock);
+	__pm_relax(&rga2_drvdata->wake_lock);
     first_RGA2_proc = 0;
 	rga2_service.enable = false;
 }
@@ -2102,7 +2102,7 @@ static int rga2_drv_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&data->power_off_work, rga2_power_off_work);
-	wake_lock_init(&data->wake_lock, WAKE_LOCK_SUSPEND, "rga");
+	wakeup_source_add(&data->wake_lock);
 
 	data->clk_rga2 = devm_clk_get(&pdev->dev, "clk_rga");
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
@@ -2174,7 +2174,7 @@ err_misc_register:
 err_irq:
 	iounmap(data->rga_base);
 err_ioremap:
-	wake_lock_destroy(&data->wake_lock);
+	wakeup_source_remove(&data->wake_lock);
 	//kfree(data);
 
 	return ret;
@@ -2185,7 +2185,7 @@ static int rga2_drv_remove(struct platform_device *pdev)
 	struct rga2_drvdata_t *data = platform_get_drvdata(pdev);
 	DBG("%s [%d]\n",__FUNCTION__,__LINE__);
 
-	wake_lock_destroy(&data->wake_lock);
+	wakeup_source_remove(&data->wake_lock);
 	misc_deregister(&(data->miscdev));
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
 	free_irq(data->irq, &data->miscdev);
