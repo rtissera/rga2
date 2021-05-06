@@ -420,6 +420,7 @@ static int rga2_MapUserMemory(struct page **pages, uint32_t *pageTable,
 	spinlock_t * ptl;
 	pte_t * pte;
 	pgd_t * pgd;
+	p4d_t * p4d;
 	pud_t * pud;
 	pmd_t * pmd;
 
@@ -470,7 +471,13 @@ static int rga2_MapUserMemory(struct page **pages, uint32_t *pageTable,
 			status = RGA2_OUT_OF_RESOURCES;
 			break;
 		}
-		pud = pud_offset(pgd, (Memory + i) << PAGE_SHIFT);
+		p4d = p4d_offset(pgd, (Memory + i) << PAGE_SHIFT);
+		if (p4d_none(*p4d) || unlikely(p4d_bad(*p4d))) {
+			pr_err("RGA2 failed to get p4d\n");
+			status = RGA2_OUT_OF_RESOURCES;
+			break;
+		}
+		pud = pud_offset(p4d, (Memory + i) << PAGE_SHIFT);
 		if (pud_none(*pud) || unlikely(pud_bad(*pud))) {
 			pr_err("RGA2 failed to get pud\n");
 			status = RGA2_OUT_OF_RESOURCES;
