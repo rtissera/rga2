@@ -426,7 +426,7 @@ static int rga2_MapUserMemory(struct page **pages, uint32_t *pageTable,
 
 	status = 0;
 	Address = 0;
-	down_read(&current->mm->mmap_sem);
+	down_read(&current->mm->mmap_lock);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 168) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
 	result = get_user_pages(current, current->mm, Memory << PAGE_SHIFT,
 				pageCount, writeFlag ? FOLL_WRITE : 0,
@@ -452,7 +452,7 @@ static int rga2_MapUserMemory(struct page **pages, uint32_t *pageTable,
 		}
 		for (i = 0; i < result; i++)
 			put_page(pages[i]);
-		up_read(&current->mm->mmap_sem);
+		up_read(&current->mm->mmap_lock);
 		return 0;
 	}
 	if (result > 0) {
@@ -505,7 +505,7 @@ static int rga2_MapUserMemory(struct page **pages, uint32_t *pageTable,
 		rga_dma_flush_page(pfn_to_page(pfn));
 		pte_unmap_unlock(pte, ptl);
 	}
-	up_read(&current->mm->mmap_sem);
+	up_read(&current->mm->mmap_lock);
 	return status;
 }
 
