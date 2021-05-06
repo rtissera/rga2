@@ -936,7 +936,7 @@ static void rga2_try_set_reg(void)
 			dmac_flush_range(&rga2_service.cmd_buff[0], &rga2_service.cmd_buff[32]);
 			outer_flush_range(virt_to_phys(&rga2_service.cmd_buff[0]),virt_to_phys(&rga2_service.cmd_buff[32]));
 #elif defined(CONFIG_ARM64)
-			__dma_flush_area(&rga2_service.cmd_buff[0], 32*sizeof(rga2_service.cmd_buff));
+			__dma_flush_range(&rga2_service.cmd_buff[0], &rga2_service.cmd_buff[32]);
 #endif
 
 			//rga2_soft_reset();
@@ -2484,8 +2484,8 @@ void rga2_slt(void)
 	dmac_flush_range(&dst_buf[0], &dst_buf[400 * 200]);
 	outer_flush_range(virt_to_phys(&dst_buf[0]), virt_to_phys(&dst_buf[400 * 200]));
 #elif defined(CONFIG_ARM64)
-	__dma_flush_area(&src_buf[0], 400 * 200 * sizeof(src_buf[0]));
-	__dma_flush_area(&dst_buf[0], 400 * 200 * sizeof(dst_buf[0]));
+	__dma_flush_range(&src_buf[0], &src_buf[400 * 200]);
+	__dma_flush_range(&dst_buf[0], &dst_buf[400 * 200]);
 #endif
 
 	INFO("\n********************************\n");
