@@ -38,13 +38,13 @@ extern struct rga2_mmu_buf_t rga2_mmu_buf;
 #define V7_VATOPA_GET_NS(X)		((X>>9) & 1)
 #define V7_VATOPA_GET_SS(X)		((X>>1) & 1)
 
-static void rga_dma_flush_range(void *pstart, void *pend)
+static void rga_dma_flush_area(void *pstart, size_t size)
 {
 #ifdef CONFIG_ARM
 	dmac_flush_range(pstart, pend);
 	outer_flush_range(virt_to_phys(pstart), virt_to_phys(pend));
 #elif defined(CONFIG_ARM64)
-	__dma_flush_range(pstart, pend);
+	__dma_flush_area(pstart, size);
 #endif
 }
 
@@ -73,7 +73,7 @@ static void rga_dma_flush_page(struct page *page)
 	outer_flush_range(paddr, paddr + PAGE_SIZE);
 #elif defined(CONFIG_ARM64)
 	virt = page_address(page);
-	__dma_flush_range(virt, virt + PAGE_SIZE);
+	__dma_flush_area(virt, PAGE_SIZE);
 #endif
 }
 
@@ -702,7 +702,7 @@ static int rga2_mmu_info_BitBlt_mode(struct rga2_reg *reg, struct rga2_req *req)
 		}
 	}
 	/* flush data to DDR */
-	rga_dma_flush_range(MMU_Base, (MMU_Base + AllSize));
+	rga_dma_flush_area(MMU_Base, AllSize);
 	rga2_mmu_buf_get(&rga2_mmu_buf, AllSize);
 	reg->MMU_len = AllSize;
 	status = 0;
@@ -801,7 +801,7 @@ static int rga2_mmu_info_color_palette_mode(struct rga2_reg *reg, struct rga2_re
         }
 
         /* flush data to DDR */
-        rga_dma_flush_range(MMU_Base, (MMU_Base + AllSize));
+        rga_dma_flush_area(MMU_Base, AllSize);
         rga2_mmu_buf_get(&rga2_mmu_buf, AllSize);
         reg->MMU_len = AllSize;
 
@@ -870,7 +870,7 @@ static int rga2_mmu_info_color_fill_mode(struct rga2_reg *reg, struct rga2_req *
         }
 
         /* flush data to DDR */
-        rga_dma_flush_range(MMU_Base, (MMU_Base + AllSize + 1));
+        rga_dma_flush_area(MMU_Base, AllSize + 1);
         rga2_mmu_buf_get(&rga2_mmu_buf, AllSize);
 	reg->MMU_len = AllSize;
 
@@ -931,7 +931,7 @@ static int rga2_mmu_info_update_palette_table_mode(struct rga2_reg *reg, struct 
         }
 
         /* flush data to DDR */
-        rga_dma_flush_range(MMU_Base, (MMU_Base + AllSize));
+        rga_dma_flush_area(MMU_Base, AllSize);
         rga2_mmu_buf_get(&rga2_mmu_buf, AllSize);
         reg->MMU_len = AllSize;
 
@@ -1010,7 +1010,7 @@ static int rga2_mmu_info_update_patten_buff_mode(struct rga2_reg *reg, struct rg
         reg->MMU_base = MMU_Base;
 
         /* flush data to DDR */
-        rga_dma_flush_range(MMU_Base, (MMU_Base + AllSize));
+        rga_dma_flush_area(MMU_Base, AllSize);
         return 0;
 
     }
