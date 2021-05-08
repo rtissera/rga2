@@ -86,25 +86,6 @@ void rga2_dma_flush_page(struct page *page, int map)
 	}
 }
 
-#if 0
-static unsigned int armv7_va_to_pa(unsigned int v_addr)
-{
-	unsigned int p_addr;
-	__asm__ volatile (	"mcr p15, 0, %1, c7, c8, 0\n"
-						"isb\n"
-						"dsb\n"
-						"mrc p15, 0, %0, c7, c4, 0\n"
-						: "=r" (p_addr)
-						: "r" (v_addr)
-						: "cc");
-
-	if (p_addr & V7_VATOPA_SUCESS_MASK)
-		return 0xFFFFFFFF;
-	else
-		return (V7_VATOPA_GET_SS(p_addr) ? 0xFFFFFFFF : V7_VATOPA_GET_PADDR(p_addr));
-}
-#endif
-
 static int rga2_mmu_buf_get(struct rga2_mmu_buf_t *t, uint32_t size)
 {
     mutex_lock(&rga2_service.lock);
@@ -456,22 +437,11 @@ static int rga2_MapUserMemory(struct page **pages, uint32_t *pageTable,
 	status = 0;
 	Address = 0;
 	down_read(&current->mm->mmap_lock);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 168) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-	result = get_user_pages(current, current->mm, Memory << PAGE_SHIFT,
-				pageCount, writeFlag ? FOLL_WRITE : 0,
-				pages, NULL);
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
-	result = get_user_pages(current, current->mm, Memory << PAGE_SHIFT,
-				pageCount, writeFlag, 0, pages, NULL);
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
-	result = get_user_pages_remote(current, current->mm,
-				       Memory << PAGE_SHIFT,
-				       pageCount, writeFlag, 0, pages, NULL);
-#else
+
 	result = get_user_pages_remote(current->mm,
 				       Memory << PAGE_SHIFT,
 				       pageCount, writeFlag, pages, NULL, NULL);
-#endif
+
 	if (result > 0 && result >= pageCount) {
 		/* Fill the page table. */
 		for (i = 0; i < pageCount; i++) {

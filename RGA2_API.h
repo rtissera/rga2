@@ -15,20 +15,29 @@ struct rga2_drvdata_t {
 
 	struct delayed_work power_off_work;
 	struct wakeup_source wake_lock;
-	void (*rga_irq_callback)(int rga_retval);
 
 	struct clk *aclk_rga2;
 	struct clk *hclk_rga2;
-	struct clk *pd_rga2;
 	struct clk *clk_rga2;
 
-	struct ion_client *ion_client;
 	char version[16];
 };
 
 #define ENABLE      1
 #define DISABLE     0
 
+#define IS_YUV_420(format) \
+     ((format == RK_FORMAT_YCbCr_420_P) | (format == RK_FORMAT_YCbCr_420_SP) | \
+      (format == RK_FORMAT_YCrCb_420_P) | (format == RK_FORMAT_YCrCb_420_SP))
 
+#define IS_YUV_422(format) \
+     ((format == RK_FORMAT_YCbCr_422_P) | (format == RK_FORMAT_YCbCr_422_SP) | \
+      (format == RK_FORMAT_YCrCb_422_P) | (format == RK_FORMAT_YCrCb_422_SP))
+
+#define IS_YUV(format) \
+     ((format == RK_FORMAT_YCbCr_420_P) | (format == RK_FORMAT_YCbCr_420_SP) | \
+      (format == RK_FORMAT_YCrCb_420_P) | (format == RK_FORMAT_YCrCb_420_SP) | \
+      (format == RK_FORMAT_YCbCr_422_P) | (format == RK_FORMAT_YCbCr_422_SP) | \
+      (format == RK_FORMAT_YCrCb_422_P) | (format == RK_FORMAT_YCrCb_422_SP))
 
 #endif
