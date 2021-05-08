@@ -2440,11 +2440,7 @@ void rga2_test_0(void)
 }
 #endif
 
-#ifdef CONFIG_ROCKCHIP_THUNDER_BOOT
-module_init(rga2_init);
-#else
 late_initcall(rga2_init);
-#endif
 module_exit(rga2_exit);
 
 /* Module information */
