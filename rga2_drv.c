@@ -41,15 +41,13 @@
 #include <linux/fb.h>
 #include <linux/scatterlist.h>
 #include <linux/version.h>
-#include <linux/debugfs.h>
-
 #include <linux/pm_runtime.h>
 #include <linux/dma-buf.h>
 
 #include "rga2.h"
 #include "rga2_reg_info.h"
 #include "rga2_mmu_info.h"
-#include "RGA2_API.h"
+#include "rga2_drv.h"
 
 #define RGA2_TEST_FLUSH_TIME 0
 #define RGA2_INFO_BUS_ERROR 1
@@ -68,14 +66,6 @@ ktime_t rga2_end;
 int rga2_flag;
 int first_RGA2_proc;
 static int rk3368;
-#if RGA2_DEBUGFS
-int RGA2_TEST_REG;
-int RGA2_TEST_MSG;
-int RGA2_TEST_TIME;
-int RGA2_CHECK_MODE;
-int RGA2_NONUSE;
-int RGA2_INT_FLAG;
-#endif
 
 rga2_session rga2_session_global;
 long (*rga2_ioctl_kernel_p)(struct rga_req *);
@@ -89,7 +79,6 @@ static void rga2_del_running_list(void);
 static void rga2_del_running_list_timeout(void);
 static void rga2_try_set_reg(void);
 
-
 /* Logging */
 #define RGA_DEBUG 1
 #if RGA_DEBUG
@@ -102,384 +91,6 @@ static void rga2_try_set_reg(void);
 #define ERR(format, args...)
 #define WARNING(format, args...)
 #define INFO(format, args...)
-#endif
-
-#if RGA2_DEBUGFS
-static const char *rga2_get_cmd_mode_str(u32 cmd)
-{
-	switch (cmd) {
-	case RGA_BLIT_SYNC:
-		return "RGA_BLIT_SYNC";
-	case RGA_BLIT_ASYNC:
-		return "RGA_BLIT_ASYNC";
-	case RGA_FLUSH:
-		return "RGA_FLUSH";
-	case RGA_GET_RESULT:
-		return "RGA_GET_RESULT";
-	case RGA_GET_VERSION:
-		return "RGA_GET_VERSION";
-	default:
-		return "UNF";
-	}
-}
-
-static const char *rga2_get_blend_mode_str(u16 alpha_rop_flag, u16 alpha_mode_0,
-					   u16 alpha_mode_1)
-{
-	if (alpha_rop_flag == 0) {
-		return "no blend";
-	} else if (alpha_rop_flag == 0x9) {
-		if (alpha_mode_0 == 0x381A  && alpha_mode_1 == 0x381A)
-			return "105 src + (1-src.a)*dst";
-		else if (alpha_mode_0 == 0x483A  && alpha_mode_1 == 0x483A)
-			return "405 src.a * src + (1-src.a) * dst";
-		else
-			return "check reg for more imformation";
-	} else {
-		return "check reg for more imformation";
-	}
-}
-
-static const char *rga2_get_render_mode_str(u8 mode)
-{
-	switch (mode) {
-	case 0x0:
-		return "bitblt";
-	case 0x1:
-		return "color_palette";
-	case 0x2:
-		return "color_fill";
-	case 0x3:
-		return "update_palette_table";
-	case 0x4:
-		return "update_patten_buff";
-	default:
-		return "UNF";
-	}
-}
-
-static const char *rga2_get_rotate_mode_str(u8 mode)
-{
-	switch (mode) {
-	case 0x0:
-		return "0";
-	case 0x1:
-		return "90 degree";
-	case 0x2:
-		return "180 degree";
-	case 0x3:
-		return "270 degree";
-	case 0x10:
-		return "xmirror";
-	case 0x20:
-		return "ymirror";
-	case 0x30:
-		return "xymirror";
-	default:
-		return "UNF";
-	}
-}
-
-static bool rga2_is_yuv10bit_format(uint32_t format)
-{
-	bool ret  = false;
-
-	switch (format) {
-	case RGA2_FORMAT_YCbCr_420_SP_10B:
-	case RGA2_FORMAT_YCrCb_420_SP_10B:
-	case RGA2_FORMAT_YCbCr_422_SP_10B:
-	case RGA2_FORMAT_YCrCb_422_SP_10B:
-		ret = true;
-		break;
-	}
-	return ret;
-}
-
-static bool rga2_is_yuv8bit_format(uint32_t format)
-{
-	bool ret  = false;
-
-	switch (format) {
-	case RGA2_FORMAT_YCbCr_422_SP:
-	case RGA2_FORMAT_YCbCr_422_P:
-	case RGA2_FORMAT_YCbCr_420_SP:
-	case RGA2_FORMAT_YCbCr_420_P:
-	case RGA2_FORMAT_YCrCb_422_SP:
-	case RGA2_FORMAT_YCrCb_422_P:
-	case RGA2_FORMAT_YCrCb_420_SP:
-	case RGA2_FORMAT_YCrCb_420_P:
-		ret = true;
-		break;
-	}
-	return ret;
-}
-
-static const char *rga2_get_format_name(uint32_t format)
-{
-	switch (format) {
-	case RGA2_FORMAT_RGBA_8888:
-		return "RGBA8888";
-	case RGA2_FORMAT_RGBX_8888:
-		return "RGBX8888";
-	case RGA2_FORMAT_RGB_888:
-		return "RGB888";
-	case RGA2_FORMAT_BGRA_8888:
-		return "BGRA8888";
-	case RGA2_FORMAT_BGRX_8888:
-		return "BGRX8888";
-	case RGA2_FORMAT_BGR_888:
-		return "BGR888";
-	case RGA2_FORMAT_RGB_565:
-		return "RGB565";
-	case RGA2_FORMAT_RGBA_5551:
-		return "RGBA5551";
-	case RGA2_FORMAT_RGBA_4444:
-		return "RGBA4444";
-	case RGA2_FORMAT_BGR_565:
-		return "BGR565";
-	case RGA2_FORMAT_BGRA_5551:
-		return "BGRA5551";
-	case RGA2_FORMAT_BGRA_4444:
-		return "BGRA4444";
-
-	case RGA2_FORMAT_YCbCr_422_SP:
-		return "YCbCr422SP";
-	case RGA2_FORMAT_YCbCr_422_P:
-		return "YCbCr422P";
-	case RGA2_FORMAT_YCbCr_420_SP:
-		return "YCbCr420SP";
-	case RGA2_FORMAT_YCbCr_420_P:
-		return "YCbCr420P";
-	case RGA2_FORMAT_YCrCb_422_SP:
-		return "YCrCb422SP";
-	case RGA2_FORMAT_YCrCb_422_P:
-		return "YCrCb422P";
-	case RGA2_FORMAT_YCrCb_420_SP:
-		return "YCrCb420SP";
-	case RGA2_FORMAT_YCrCb_420_P:
-		return "YCrCb420P";
-
-	case RGA2_FORMAT_YVYU_422:
-		return "YVYU422";
-	case RGA2_FORMAT_YVYU_420:
-		return "YVYU420";
-	case RGA2_FORMAT_VYUY_422:
-		return "VYUY422";
-	case RGA2_FORMAT_VYUY_420:
-		return "VYUY420";
-	case RGA2_FORMAT_YUYV_422:
-		return "YUYV422";
-	case RGA2_FORMAT_YUYV_420:
-		return "YUYV420";
-	case RGA2_FORMAT_UYVY_422:
-		return "UYVY422";
-	case RGA2_FORMAT_UYVY_420:
-		return "UYVY420";
-
-	case RGA2_FORMAT_YCbCr_420_SP_10B:
-		return "YCrCb420SP10B";
-	case RGA2_FORMAT_YCrCb_420_SP_10B:
-		return "YCbCr420SP10B";
-	case RGA2_FORMAT_YCbCr_422_SP_10B:
-		return "YCbCr422SP10B";
-	case RGA2_FORMAT_YCrCb_422_SP_10B:
-		return "YCrCb422SP10B";
-	case RGA2_FORMAT_BPP_1:
-		return "BPP1";
-	case RGA2_FORMAT_BPP_2:
-		return "BPP2";
-	case RGA2_FORMAT_BPP_4:
-		return "BPP4";
-	case RGA2_FORMAT_BPP_8:
-		return "BPP8";
-	case RGA2_FORMAT_YCbCr_400:
-		return "YCbCr400";
-	case RGA2_FORMAT_Y4:
-		return "y4";
-	default:
-		return "UNF";
-	}
-}
-
-static void print_debug_info(struct rga2_req *req)
-{
-	INFO("render_mode:%s,bitblit_mode=%d,rotate_mode:%s\n",
-	     rga2_get_render_mode_str(req->render_mode), req->bitblt_mode,
-	     rga2_get_rotate_mode_str(req->rotate_mode));
-	INFO("src : y=%lx uv=%lx v=%lx aw=%d ah=%d vw=%d vh=%d xoff=%d yoff=%d format=%s\n",
-	     req->src.yrgb_addr, req->src.uv_addr, req->src.v_addr,
-	     req->src.act_w, req->src.act_h, req->src.vir_w, req->src.vir_h,
-	     req->src.x_offset, req->src.y_offset,
-	     rga2_get_format_name(req->src.format));
-	if (req->src1.yrgb_addr != 0 ||
-	    req->src1.uv_addr != 0 ||
-	    req->src1.v_addr != 0) {
-		INFO("src1 : y=%lx uv=%lx v=%lx aw=%d ah=%d vw=%d vh=%d xoff=%d yoff=%d format=%s\n",
-		     req->src1.yrgb_addr, req->src1.uv_addr, req->src1.v_addr,
-		     req->src1.act_w, req->src1.act_h, req->src1.vir_w, req->src1.vir_h,
-		     req->src1.x_offset, req->src1.y_offset,
-		     rga2_get_format_name(req->src1.format));
-	}
-	INFO("dst : y=%lx uv=%lx v=%lx aw=%d ah=%d vw=%d vh=%d xoff=%d yoff=%d format=%s\n",
-	     req->dst.yrgb_addr, req->dst.uv_addr, req->dst.v_addr,
-	     req->dst.act_w, req->dst.act_h, req->dst.vir_w, req->dst.vir_h,
-	     req->dst.x_offset, req->dst.y_offset,
-	     rga2_get_format_name(req->dst.format));
-	INFO("mmu : src=%.2x src1=%.2x dst=%.2x els=%.2x\n",
-	     req->mmu_info.src0_mmu_flag, req->mmu_info.src1_mmu_flag,
-	     req->mmu_info.dst_mmu_flag, req->mmu_info.els_mmu_flag);
-	INFO("alpha : flag %x mode0=%x mode1=%x\n",
-	     req->alpha_rop_flag, req->alpha_mode_0, req->alpha_mode_1);
-	INFO("blend mode is %s\n",
-	     rga2_get_blend_mode_str(req->alpha_rop_flag,
-	     req->alpha_mode_0, req->alpha_mode_1));
-	INFO("yuv2rgb mode is %x\n", req->yuv2rgb_mode);
-}
-
-static int rga2_align_check(struct rga2_req *req)
-{
-	if (rga2_is_yuv10bit_format(req->src.format))
-		if ((req->src.vir_w % 16) || (req->src.x_offset % 2) ||
-		    (req->src.act_w % 2) || (req->src.y_offset % 2) ||
-		    (req->src.act_h % 2) || (req->src.vir_h % 2))
-			INFO("err src wstride is not align to 16 or yuv not align to 2");
-	if (rga2_is_yuv10bit_format(req->dst.format))
-		if ((req->dst.vir_w % 16) || (req->dst.x_offset % 2) ||
-		    (req->dst.act_w % 2) || (req->dst.y_offset % 2) ||
-		    (req->dst.act_h % 2) || (req->dst.vir_h % 2))
-			INFO("err dst wstride is not align to 16 or yuv not align to 2");
-	if (rga2_is_yuv8bit_format(req->src.format))
-		if ((req->src.vir_w % 8) || (req->src.x_offset % 2) ||
-		    (req->src.act_w % 2) || (req->src.y_offset % 2) ||
-		    (req->src.act_h % 2) || (req->src.vir_h % 2))
-			INFO("err src wstride is not align to 8 or yuv not align to 2");
-	if (rga2_is_yuv8bit_format(req->dst.format))
-		if ((req->dst.vir_w % 8) || (req->dst.x_offset % 2) ||
-		    (req->dst.act_w % 2) || (req->dst.y_offset % 2) ||
-		    (req->dst.act_h % 2) || (req->dst.vir_h % 2))
-			INFO("err dst wstride is not align to 8 or yuv not align to 2");
-	INFO("rga align check over!\n");
-	return 0;
-}
-
-static int rga2_memory_check(void *vaddr, u32 w, u32 h, u32 format, int fd)
-{
-	int bits = 32;
-	int temp_data = 0;
-	void *one_line = kzalloc(w * 4, GFP_KERNEL);
-
-	if (!one_line) {
-		ERR("kzalloc fail %s[%d]\n", __func__, __LINE__);
-		return 0;
-	}
-	switch (format) {
-	case RGA2_FORMAT_RGBA_8888:
-	case RGA2_FORMAT_RGBX_8888:
-	case RGA2_FORMAT_BGRA_8888:
-	case RGA2_FORMAT_BGRX_8888:
-		bits = 32;
-		break;
-	case RGA2_FORMAT_RGB_888:
-	case RGA2_FORMAT_BGR_888:
-		bits = 24;
-		break;
-	case RGA2_FORMAT_RGB_565:
-	case RGA2_FORMAT_RGBA_5551:
-	case RGA2_FORMAT_RGBA_4444:
-	case RGA2_FORMAT_BGR_565:
-	case RGA2_FORMAT_YCbCr_422_SP:
-	case RGA2_FORMAT_YCbCr_422_P:
-	case RGA2_FORMAT_YCrCb_422_SP:
-	case RGA2_FORMAT_YCrCb_422_P:
-	case RGA2_FORMAT_BGRA_5551:
-	case RGA2_FORMAT_BGRA_4444:
-		bits = 16;
-		break;
-	case RGA2_FORMAT_YCbCr_420_SP:
-	case RGA2_FORMAT_YCbCr_420_P:
-	case RGA2_FORMAT_YCrCb_420_SP:
-	case RGA2_FORMAT_YCrCb_420_P:
-		bits = 12;
-		break;
-	case RGA2_FORMAT_YCbCr_420_SP_10B:
-	case RGA2_FORMAT_YCrCb_420_SP_10B:
-	case RGA2_FORMAT_YCbCr_422_SP_10B:
-	case RGA2_FORMAT_YCrCb_422_SP_10B:
-		bits = 15;
-		break;
-	default:
-		INFO("un know format\n");
-		kfree(one_line);
-		return -1;
-	}
-	temp_data = w * (h - 1) * bits >> 3;
-	if (fd > 0) {
-		INFO("vaddr is%p, bits is %d, fd check\n", vaddr, bits);
-		memcpy(one_line, (char *)vaddr + temp_data, w * bits >> 3);
-		INFO("fd check ok\n");
-	} else {
-		INFO("vir addr memory check.\n");
-		memcpy((void *)((char *)vaddr + temp_data), one_line,
-		       w * bits >> 3);
-		INFO("vir addr check ok.\n");
-	}
-	kfree(one_line);
-	return 0;
-}
-
-int rga2_scale_check(struct rga2_req *req)
-{
-	u32 saw, sah, daw, dah;
-	struct rga2_drvdata_t *data = rga2_drvdata;
-
-	saw = req->src.act_w;
-	sah = req->src.act_h;
-	daw = req->dst.act_w;
-	dah = req->dst.act_h;
-
-	if (strncmp(data->version, "2.20", 4) == 0) {
-		if (((saw >> 4) >= daw) || ((sah >> 4) >= dah))
-			INFO("unsupported to scaling less than 1/16 times.\n");
-		if (((daw >> 4) >= saw) || ((dah >> 4) >= sah))
-			INFO("unsupported to scaling more than 16 times.\n");
-	} else {
-		if (((saw >> 3) >= daw) || ((sah >> 3) >= dah))
-			INFO("unsupported to scaling less than 1/8 tiems.\n");
-		if (((daw >> 3) >= saw) || ((dah >> 3) >= sah))
-			INFO("unsupported to scaling more than 8 times.\n");
-	}
-	INFO("rga2 scale check over.\n");
-	return 0;
-}
-
-static void rga2_printf_cmd_buf(u32 *cmd_buf)
-{
-	u32 reg_p[32];
-	u32 i = 0;
-	u32 src_stride, dst_stride, src_format, dst_format;
-	u32 src_aw, src_ah, dst_aw, dst_ah;
-
-	for (i = 0; i < 32; i++)
-		reg_p[i] = *(cmd_buf + i);
-
-	src_stride = reg_p[6];
-	dst_stride = reg_p[18];
-
-	src_format = reg_p[1] & (~0xfffffff0);
-	dst_format = reg_p[14] & (~0xfffffff0);
-
-	src_aw = (reg_p[7] & (~0xffff0000)) + 1;
-	src_ah = ((reg_p[7] & (~0x0000ffff)) >> 16) + 1;
-
-	dst_aw = (reg_p[19] & (~0xffff0000)) + 1;
-	dst_ah = ((reg_p[19] & (~0x0000ffff)) >> 16) + 1;
-
-	DBG("src : aw = %d ah = %d stride = %d format is %x\n",
-	     src_aw, src_ah, src_stride, src_format);
-	DBG("dst : aw = %d ah = %d stride = %d format is %x\n",
-	     dst_aw, dst_ah, dst_stride, dst_format);
-}
-
 #endif
 
 static bool is_yuv422p_format(u32 format)
@@ -663,10 +274,6 @@ static int rga2_flush(rga2_session *session, unsigned long arg)
 	ktime_t start = ktime_set(0, 0);
 	ktime_t end = ktime_set(0, 0);
 
-#if RGA2_DEBUGFS
-	if (RGA2_TEST_TIME)
-		start = ktime_get();
-#endif
 	ret_timeout = wait_event_timeout(session->wait, atomic_read(&session->done), RGA2_TIMEOUT_DELAY);
 
 	if (unlikely(ret_timeout < 0)) {
@@ -709,13 +316,6 @@ static int rga2_flush(rga2_session *session, unsigned long arg)
 		ret = -ETIMEDOUT;
 	}
 
-#if RGA2_DEBUGFS
-	if (RGA2_TEST_TIME) {
-		end = ktime_get();
-		end = ktime_sub(end, start);
-		DBG("one flush wait time %d\n", (int)ktime_to_us(end));
-	}
-#endif
 	return ret;
 }
 
@@ -916,49 +516,15 @@ static void rga2_try_set_reg(void)
 			/* CMD buff */
 			rga2_write(virt_to_phys(reg->cmd_reg), RGA2_CMD_BASE);
 
-#if RGA2_DEBUGFS
-			if (RGA2_TEST_REG) {
-				if (rga2_flag) {
-					int32_t i, *p;
-					p = rga2_service.cmd_buff;
-					INFO("CMD_REG\n");
-					for (i=0; i<8; i++)
-						INFO("%.8x %.8x %.8x %.8x\n",
-						     p[0 + i * 4], p[1 + i * 4],
-						     p[2 + i * 4], p[3 + i * 4]);
-				}
-			}
-#endif
-
 			/* master mode */
 			rga2_write((0x1<<1)|(0x1<<2)|(0x1<<5)|(0x1<<6), RGA2_SYS_CTRL);
 
 			/* All CMD finish int */
 			rga2_write(rga2_read(RGA2_INT)|(0x1<<10)|(0x1<<9)|(0x1<<8), RGA2_INT);
 
-#if RGA2_DEBUGFS
-			if (RGA2_TEST_TIME)
-				rga2_start = ktime_get();
-#endif
-
 			/* Start proc */
 			atomic_set(&reg->session->done, 0);
 			rga2_write(0x1, RGA2_CMD_CTRL);
-#if RGA2_DEBUGFS
-			if (RGA2_TEST_REG) {
-				if (rga2_flag) {
-					uint32_t i;
-					INFO("CMD_READ_BACK_REG\n");
-					for (i=0; i<8; i++)
-						INFO("%.8x %.8x %.8x %.8x\n",
-						     rga2_read(0x100 + i * 16 + 0),
-						     rga2_read(0x100 + i * 16 + 4),
-						     rga2_read(0x100 + i * 16 + 8),
-						     rga2_read(0x100 + i * 16 + 12));
-				}
-
-			}
-#endif
 		}
 	}
 }
@@ -1099,15 +665,6 @@ static int rga2_get_img_info(rga_img_info_t *img,
 			pr_err("Failed to attach dma_buf\n");
 			return ret;
 		}
-#if RGA2_DEBUGFS
-	if (RGA2_CHECK_MODE) {
-		vaddr = dma_buf_vmap(dma_buf);
-		if (vaddr)
-			rga2_memory_check(vaddr, img->vir_w, img->vir_h,
-					  img->format, img->yrgb_addr);
-		dma_buf_vunmap(dma_buf, vaddr);
-	}
-#endif
 
 		*pattach = attach;
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
@@ -1315,22 +872,10 @@ err_put_dma_buf:
 static int rga2_blit_async(rga2_session *session, struct rga2_req *req)
 {
 	int ret = -1;
-#if RGA2_DEBUGFS
-	if (RGA2_TEST_MSG) {
-		if (1) {
-			print_debug_info(req);
-			rga2_flag = 1;
-			INFO("*** rga_blit_async proc ***\n");
-		} else {
-			rga2_flag = 0;
-		}
-	}
-#endif
 	atomic_set(&session->done, 0);
 	ret = rga2_blit(session, req);
-
 	return ret;
-	}
+}
 
 static int rga2_blit_sync(rga2_session *session, struct rga2_req *req)
 {
@@ -1341,24 +886,8 @@ static int rga2_blit_sync(rga2_session *session, struct rga2_req *req)
 	int ret_timeout = 0;
 
 	memcpy(&req_bak, req, sizeof(req_bak));
+
 retry:
-
-#if RGA2_DEBUGFS
-	if (RGA2_TEST_MSG) {
-		if (1) {
-			print_debug_info(req);
-			rga2_flag = 1;
-			INFO("*** rga2_blit_sync proc ***\n");
-		} else {
-			rga2_flag = 0;
-		}
-	}
-	if (RGA2_CHECK_MODE) {
-		rga2_align_check(req);
-		/*rga2_scale_check(req);*/
-	}
-#endif
-
 	atomic_set(&session->done, 0);
 
 	ret = rga2_blit(session, req);
@@ -1415,13 +944,6 @@ retry:
 		ret = -ETIMEDOUT;
 	}
 
-#if RGA2_DEBUGFS
-	if (RGA2_TEST_TIME) {
-		rga2_end = ktime_get();
-		rga2_end = ktime_sub(rga2_end, rga2_start);
-		DBG("sync one cmd end time %d\n", (int)ktime_to_us(rga2_end));
-	}
-#endif
 	if (ret == -ETIMEDOUT && try--) {
 		memcpy(req, &req_bak, sizeof(req_bak));
 		/*
@@ -1475,14 +997,7 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 	}
 
 	memset(&req, 0x0, sizeof(req));
-#if RGA2_DEBUGFS
-	if (RGA2_TEST_MSG)
-		INFO("cmd is %s\n", rga2_get_cmd_mode_str(cmd));
-	if (RGA2_NONUSE) {
-		mutex_unlock(&rga2_service.mutex);
-		return 0;
-	}
-#endif
+
 	switch (cmd)
 	{
 		case RGA_BLIT_SYNC:
@@ -1639,11 +1154,6 @@ static long compat_rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 	mutex_lock(&rga2_service.mutex);
 
 	session = (rga2_session *)file->private_data;
-
-#if RGA2_DEBUGFS
-	if (RGA2_TEST_MSG)
-		INFO("using %s\n", __func__);
-#endif
 
 	if (NULL == session) {
 		ERR("%s [%d] rga thread session is null\n", __func__, __LINE__);
@@ -1854,11 +1364,6 @@ static void RGA2_flush_page(void)
 
 static irqreturn_t rga2_irq_thread(int irq, void *dev_id)
 {
-#if RGA2_DEBUGFS
-	if (RGA2_INT_FLAG)
-		INFO("irqthread INT[%x],STATS[%x]\n", rga2_read(RGA2_INT),
-		     rga2_read(RGA2_STATUS));
-#endif
 	RGA2_flush_page();
 	mutex_lock(&rga2_service.lock);
 	if (rga2_service.enable) {
@@ -1872,11 +1377,6 @@ static irqreturn_t rga2_irq_thread(int irq, void *dev_id)
 
 static irqreturn_t rga2_irq(int irq,  void *dev_id)
 {
-#if RGA2_DEBUGFS
-	if (RGA2_INT_FLAG)
-		INFO("irq INT[%x], STATS[%x]\n", rga2_read(RGA2_INT),
-		     rga2_read(RGA2_STATUS));
-#endif
 	/*if error interrupt then soft reset hardware*/
 	if (rga2_read(RGA2_INT) & 0x01) {
 		pr_err("Rga err irq! INT[%x],STATS[%x]\n",
@@ -2024,218 +1524,6 @@ static struct platform_driver rga2_driver = {
 	},
 };
 
-#if RGA2_DEBUGFS
-void rga2_slt(void);
-
-static int rga2_debug_show(struct seq_file *m, void *data)
-{
-	seq_puts(m, "echo reg > rga2 to open rga reg MSG\n");
-	seq_puts(m, "echo msg  > rga2 to open rga msg MSG\n");
-	seq_puts(m, "echo time > rga2 to open rga time MSG\n");
-	seq_puts(m, "echo check > rga2 to open rga check flag\n");
-	seq_puts(m, "echo stop > rga2 to stop using hardware\n");
-	seq_puts(m, "echo int > rga2 to open interruppt MSG\n");
-	return 0;
-}
-
-static ssize_t rga2_debug_write(struct file *file, const char __user *ubuf,
-			      size_t len, loff_t *offp)
-{
-	char buf[14];
-
-	if (len > sizeof(buf) - 1)
-		return -EINVAL;
-	if (copy_from_user(buf, ubuf, len))
-		return -EFAULT;
-	buf[len - 1] = '\0';
-
-	if (strncmp(buf, "reg", 4) == 0) {
-		if (RGA2_TEST_REG) {
-			RGA2_TEST_REG = 0;
-			INFO("close rga2 reg!\n");
-		} else {
-			RGA2_TEST_REG = 1;
-			INFO("open rga2 reg!\n");
-		}
-	} else if (strncmp(buf, "msg", 3) == 0) {
-		if (RGA2_TEST_MSG) {
-			RGA2_TEST_MSG = 0;
-			INFO("close rga2 test MSG!\n");
-		} else {
-			RGA2_TEST_MSG = 1;
-			INFO("open rga2 test MSG!\n");
-		}
-	} else if (strncmp(buf, "time", 4) == 0) {
-		if (RGA2_TEST_TIME) {
-			RGA2_TEST_TIME = 0;
-			INFO("close rga2 test time!\n");
-		} else {
-			RGA2_TEST_TIME = 1;
-			INFO("open rga2 test time!\n");
-		}
-	} else if (strncmp(buf, "check", 5) == 0) {
-		if (RGA2_CHECK_MODE) {
-			RGA2_CHECK_MODE = 0;
-			INFO("close rga2 check flag!\n");
-		} else {
-			RGA2_CHECK_MODE = 1;
-			INFO("open rga2 check flag!\n");
-		}
-	} else if (strncmp(buf, "stop", 4) == 0) {
-		if (RGA2_NONUSE) {
-			RGA2_NONUSE = 0;
-			INFO("stop using rga hardware!\n");
-		} else {
-			RGA2_NONUSE = 1;
-			INFO("use rga hardware!\n");
-		}
-	} else if (strncmp(buf, "int", 3) == 0) {
-		if (RGA2_INT_FLAG) {
-			RGA2_INT_FLAG = 0;
-			INFO("close inturrupt MSG!\n");
-		} else {
-			RGA2_INT_FLAG = 1;
-			INFO("open inturrupt MSG!\n");
-		}
-	} else if (strncmp(buf, "slt", 3) == 0) {
-		rga2_slt();
-	}
-
-	return len;
-}
-
-static int rga2_debug_open(struct inode *inode, struct file *file)
-
-{
-	return single_open(file, rga2_debug_show, NULL);
-}
-
-static const struct file_operations rga2_debug_fops = {
-	.owner = THIS_MODULE,
-	.open = rga2_debug_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-	.write = rga2_debug_write,
-};
-
-static void rga2_debugfs_add(void)
-{
-	struct dentry *rga2_debug_root;
-	struct dentry *ent;
-
-	rga2_debug_root = debugfs_create_dir("rga2_debug", NULL);
-
-	ent = debugfs_create_file("rga2", 0644, rga2_debug_root,
-				  NULL, &rga2_debug_fops);
-	if (!ent) {
-		pr_err("create rga2_debugfs err\n");
-		debugfs_remove_recursive(rga2_debug_root);
-	}
-}
-
-unsigned long src_buf[400 * 200];
-unsigned long dst_buf[400 * 200];
-void rga2_slt(void)
-{
-	struct rga2_req req;
-	rga2_session session;
-	unsigned long *src_vir, *dst_vir;
-	int i;
-	unsigned int srcW, srcH, dstW, dstH;
-	int err_count = 0;
-	int right_count = 0;
-	int size;
-	unsigned int *pstd;
-	unsigned int *pnow;
-
-	srcW = 400;
-	srcH = 200;
-	dstW = 400;
-	dstH = 200;
-
-	session.pid	= current->pid;
-	INIT_LIST_HEAD(&session.waiting);
-	INIT_LIST_HEAD(&session.running);
-	INIT_LIST_HEAD(&session.list_session);
-	init_waitqueue_head(&session.wait);
-	/* no need to protect */
-	list_add_tail(&session.list_session, &rga2_service.session);
-	atomic_set(&session.task_running, 0);
-	atomic_set(&session.num_done, 0);
-
-	memset(&req, 0, sizeof(struct rga2_req));
-	src_vir = src_buf;
-	dst_vir = dst_buf;
-
-	memset(src_buf, 0x50, 400 * 200 * 4);
-	memset(dst_buf, 0x00, 400 * 200 * 4);
-
-	rga2_dma_flush_range(&src_buf[0], &src_buf[400 * 200]);
-	rga2_dma_flush_range(&dst_buf[0], &dst_buf[400 * 200]);
-
-	INFO("\n********************************\n");
-	INFO("************ RGA_TEST ************\n");
-	INFO("********************************\n\n");
-
-	req.src.act_w = srcW;
-	req.src.act_h = srcH;
-
-	req.src.vir_w = srcW;
-	req.src.vir_h = srcW;
-	req.src.yrgb_addr = 0;
-	req.src.uv_addr = (unsigned long)virt_to_phys(src_vir);
-	req.src.v_addr = req.src.uv_addr + srcH * srcW;
-	req.src.format = RGA2_FORMAT_RGBA_8888;
-
-	req.dst.act_w = dstW;
-	req.dst.act_h = dstH;
-
-	req.dst.vir_w = dstW;
-	req.dst.vir_h = dstH;
-	req.dst.x_offset = 0;
-	req.dst.y_offset = 0;
-
-	req.dst.yrgb_addr = 0;
-	req.dst.uv_addr = (unsigned long)virt_to_phys(dst_vir);
-	req.dst.v_addr = req.dst.uv_addr + dstH * dstW;
-
-	req.dst.format = RGA2_FORMAT_RGBA_8888;
-	rga2_blit_sync(&session, &req);
-
-	size = dstW * dstH * 4;
-	pstd = (unsigned int *)src_vir;
-	pnow = (unsigned int *)dst_vir;
-
-	INFO("[  num   : srcInfo    dstInfo ]\n");
-	for (i = 0; i < size / 4; i++) {
-		if (*pstd != *pnow) {
-			INFO("[X%.8d : 0x%x 0x%x]", i, *pstd, *pnow);
-			if (i % 4 == 0)
-				INFO("\n");
-			err_count++;
-		} else {
-			if (i % (640 * 1024) == 0)
-				INFO("[Y%.8d : 0x%.8x 0x%.8x]\n",
-				     i, *pstd, *pnow);
-			right_count++;
-		}
-		pstd++;
-		pnow++;
-		if (err_count > 64)
-			break;
-	}
-
-	INFO("err_count=%d, right_count=%d\n", err_count, right_count);
-	if (err_count != 0)
-		INFO("rga slt err !!\n");
-	else
-		INFO("rga slt success !!\n");
-}
-#endif
-
-void rga2_test_0(void);
-
 static int __init rga2_init(void)
 {
 	int ret;
@@ -2279,12 +1567,6 @@ static int __init rga2_init(void)
 	atomic_set(&rga2_session_global.task_running, 0);
 	atomic_set(&rga2_session_global.num_done, 0);
 
-#if RGA2_TEST_CASE
-	rga2_test_0();
-#endif
-#if RGA2_DEBUGFS
-	rga2_debugfs_add();
-#endif
 	INFO("Module initialized.\n");
 
 	return 0;
@@ -2293,152 +1575,9 @@ static int __init rga2_init(void)
 static void __exit rga2_exit(void)
 {
 	rga2_power_off();
-
 	kfree(rga2_mmu_buf.buf_virtual);
-
 	platform_driver_unregister(&rga2_driver);
 }
-
-
-#if RGA2_TEST_CASE
-
-void rga2_test_0(void)
-{
-	struct rga2_req req;
-	rga2_session session;
-	unsigned int *src, *dst;
-
-	session.pid	= current->pid;
-	INIT_LIST_HEAD(&session.waiting);
-	INIT_LIST_HEAD(&session.running);
-	INIT_LIST_HEAD(&session.list_session);
-	init_waitqueue_head(&session.wait);
-	/* no need to protect */
-	list_add_tail(&session.list_session, &rga2_service.session);
-	atomic_set(&session.task_running, 0);
-	atomic_set(&session.num_done, 0);
-
-	memset(&req, 0, sizeof(struct rga2_req));
-	src = kmalloc(800*480*4, GFP_KERNEL);
-	dst = kmalloc(800*480*4, GFP_KERNEL);
-
-	printk("\n********************************\n");
-	printk("************ RGA2_TEST ************\n");
-	printk("********************************\n\n");
-
-#if 1
-	memset(src, 0x80, 800 * 480 * 4);
-	memset(dst, 0xcc, 800 * 480 * 4);
-#endif
-#if 0
-	dmac_flush_range(src, &src[800 * 480]);
-	outer_flush_range(virt_to_phys(src), virt_to_phys(&src[800 * 480]));
-
-	dmac_flush_range(dst, &dst[800 * 480]);
-	outer_flush_range(virt_to_phys(dst), virt_to_phys(&dst[800 * 480]));
-#endif
-
-#if 0
-	req.pat.act_w = 16;
-	req.pat.act_h = 16;
-	req.pat.vir_w = 16;
-	req.pat.vir_h = 16;
-	req.pat.yrgb_addr = virt_to_phys(src);
-	req.render_mode = 0;
-	rga2_blit_sync(&session, &req);
-#endif
-	{
-		uint32_t i, j;
-		uint8_t *sp;
-
-		sp = (uint8_t *)src;
-		for (j = 0; j < 240; j++) {
-			sp = (uint8_t *)src + j * 320 * 10 / 8;
-			for (i = 0; i < 320; i++) {
-				if ((i & 3) == 0) {
-					sp[i * 5 / 4] = 0;
-					sp[i * 5 / 4+1] = 0x1;
-				} else if ((i & 3) == 1) {
-					sp[i * 5 / 4+1] = 0x4;
-				} else if ((i & 3) == 2) {
-					sp[i * 5 / 4+1] = 0x10;
-				} else if ((i & 3) == 3) {
-					sp[i * 5 / 4+1] = 0x40;
-			    }
-			}
-		}
-		sp = (uint8_t *)src;
-		for (j = 0; j < 100; j++)
-			printk("src %.2x\n", sp[j]);
-	}
-	req.src.act_w = 320;
-	req.src.act_h = 240;
-
-	req.src.vir_w = 320;
-	req.src.vir_h = 240;
-	req.src.yrgb_addr = 0;//(uint32_t)virt_to_phys(src);
-	req.src.uv_addr = (unsigned long)virt_to_phys(src);
-	req.src.v_addr = 0;
-	req.src.format = RGA2_FORMAT_YCbCr_420_SP_10B;
-
-	req.dst.act_w  = 320;
-	req.dst.act_h = 240;
-	req.dst.x_offset = 0;
-	req.dst.y_offset = 0;
-
-	req.dst.vir_w = 320;
-	req.dst.vir_h = 240;
-
-	req.dst.yrgb_addr = 0;//((uint32_t)virt_to_phys(dst));
-	req.dst.uv_addr = (unsigned long)virt_to_phys(dst);
-	req.dst.format = RGA2_FORMAT_YCbCr_420_SP;
-
-	//dst = dst0;
-
-	//req.render_mode = color_fill_mode;
-	//req.fg_color = 0x80ffffff;
-
-	req.rotate_mode = 0;
-	req.scale_bicu_mode = 2;
-
-#if 0
-	//req.alpha_rop_flag = 0;
-	//req.alpha_rop_mode = 0x19;
-	//req.PD_mode = 3;
-
-	//req.mmu_info.mmu_flag = 0x21;
-	//req.mmu_info.mmu_en = 1;
-
-	//printk("src = %.8x\n", req.src.yrgb_addr);
-	//printk("src = %.8x\n", req.src.uv_addr);
-	//printk("dst = %.8x\n", req.dst.yrgb_addr);
-#endif
-
-	rga2_blit_sync(&session, &req);
-
-#if 0
-	uint32_t j;
-	for (j = 0; j < 320 * 240 * 10 / 8; j++) {
-        if (src[j] != dst[j])
-		printk("error value dst not equal src j %d, s %.2x d %.2x\n",
-			j, src[j], dst[j]);
-	}
-#endif
-
-#if 1
-	{
-		uint32_t j;
-		uint8_t *dp = (uint8_t *)dst;
-
-		for (j = 0; j < 100; j++)
-			printk("%d %.2x\n", j, dp[j]);
-	}
-#endif
-
-	kfree(src);
-	kfree(dst);
-}
-#endif
 
 late_initcall(rga2_init);
 module_exit(rga2_exit);

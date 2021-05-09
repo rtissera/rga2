@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#ifndef __REG2_INFO_H__
-#define __REG2_INFO_H__
+#ifndef __RGA2_REG_INFO_H__
+#define __RGA2_REG_INFO_H__
 
-
-//#include "chip_register.h"
-
-//#include "rga_struct.h"
 #include "rga2.h"
 
 #ifndef MIN
@@ -89,10 +85,6 @@
 #define m_RGA2_SRC_INFO_SW_SW_VSP_MODE_SEL        (   0x1<<26  )
 #define m_RGA2_SRC_INFO_SW_SW_YUV10_E             (   0x1<<27  )
 #define m_RGA2_SRC_INFO_SW_SW_YUV10_ROUND_E       (   0x1<<28  )
-
-
-
-
 
 #define s_RGA2_SRC_INFO_SW_SRC_FMT(x)                (   (x&0xf)<<0   )
 #define s_RGA2_SRC_INFO_SW_SW_SRC_RB_SWAP(x)         (   (x&0x1)<<4   )
@@ -222,7 +214,6 @@
 #define s_RGA2_ALPHA_CTRL1_SW_SRC_BLEND_M1(x)            ( (x&0x3)<<26)
 #define s_RGA2_ALPHA_CTRL1_SW_DST_ALPHA_M1(x)            ( (x&0x1)<<28)
 #define s_RGA2_ALPHA_CTRL1_SW_SRC_ALPHA_M1(x)            ( (x&0x1)<<29)
-
 
 
 /* RGA_MMU_CTRL1 */

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#ifndef __RGA_MMU_INFO_H__
-#define __RGA_MMU_INFO_H__
+#ifndef __RGA2_MMU_INFO_H__
+#define __RGA2_MMU_INFO_H__
 
 #include "rga2.h"
-#include "RGA2_API.h"
+#include "rga2_drv.h"
 
 #ifndef MIN
 #define MIN(X, Y)           ((X)<(Y)?(X):(Y))

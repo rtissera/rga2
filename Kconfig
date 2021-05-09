@@ -5,6 +5,6 @@ menu "RGA2"
 config ROCKCHIP_RGA2
 	tristate "ROCKCHIP_RGA2"
 	help
-	  rk32 rga2 module.
+	  Rockchip rga2 module.
 
 endmenu

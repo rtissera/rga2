@@ -20,23 +20,11 @@
 #include <asm/atomic.h>
 #include <asm/cacheflush.h>
 #include "rga2_mmu_info.h"
-#if RGA2_DEBUGFS
-extern int RGA2_CHECK_MODE;
-#endif
+
 extern struct rga2_service_info rga2_service;
 extern struct rga2_mmu_buf_t rga2_mmu_buf;
 
-//extern int mmu_buff_temp[1024];
-
 #define KERNEL_SPACE_VALID    0xc0000000
-
-#define V7_VATOPA_SUCESS_MASK	(0x1)
-#define V7_VATOPA_GET_PADDR(X)	(X & 0xFFFFF000)
-#define V7_VATOPA_GET_INER(X)		((X>>4) & 7)
-#define V7_VATOPA_GET_OUTER(X)		((X>>2) & 3)
-#define V7_VATOPA_GET_SH(X)		((X>>7) & 1)
-#define V7_VATOPA_GET_NS(X)		((X>>9) & 1)
-#define V7_VATOPA_GET_SS(X)		((X>>1) & 1)
 
 void rga2_dma_flush_range(void *pstart, void *pend)
 {
@@ -344,77 +332,6 @@ static int rga2_buf_size_cal(unsigned long yrgb_addr, unsigned long uv_addr, uns
     return pageCount;
 }
 
-#if RGA2_DEBUGFS
-static int rga2_UserMemory_cheeck(struct page **pages, u32 w, u32 h, u32 format, int flag)
-{
-	int bits;
-	void *vaddr = NULL;
-	int taipage_num;
-	int taidata_num;
-	int *tai_vaddr = NULL;
-
-	switch (format) {
-	case RGA2_FORMAT_RGBA_8888:
-	case RGA2_FORMAT_RGBX_8888:
-	case RGA2_FORMAT_BGRA_8888:
-	case RGA2_FORMAT_BGRX_8888:
-		bits = 32;
-		break;
-	case RGA2_FORMAT_RGB_888:
-	case RGA2_FORMAT_BGR_888:
-		bits = 24;
-		break;
-	case RGA2_FORMAT_RGB_565:
-	case RGA2_FORMAT_RGBA_5551:
-	case RGA2_FORMAT_RGBA_4444:
-	case RGA2_FORMAT_BGR_565:
-	case RGA2_FORMAT_YCbCr_422_SP:
-	case RGA2_FORMAT_YCbCr_422_P:
-	case RGA2_FORMAT_YCrCb_422_SP:
-	case RGA2_FORMAT_YCrCb_422_P:
-	case RGA2_FORMAT_BGRA_5551:
-	case RGA2_FORMAT_BGRA_4444:
-		bits = 16;
-		break;
-	case RGA2_FORMAT_YCbCr_420_SP:
-	case RGA2_FORMAT_YCbCr_420_P:
-	case RGA2_FORMAT_YCrCb_420_SP:
-	case RGA2_FORMAT_YCrCb_420_P:
-		bits = 12;
-		break;
-	case RGA2_FORMAT_YCbCr_420_SP_10B:
-	case RGA2_FORMAT_YCrCb_420_SP_10B:
-	case RGA2_FORMAT_YCbCr_422_SP_10B:
-	case RGA2_FORMAT_YCrCb_422_SP_10B:
-		bits = 15;
-		break;
-	default:
-		printk("un know format\n");
-		return -1;
-	}
-	taipage_num = w * h * bits / 8 / (1024 * 4);
-	taidata_num = w * h * bits / 8 % (1024 * 4);
-	if (taidata_num == 0) {
-		vaddr = kmap(pages[taipage_num - 1]);
-		tai_vaddr = (int *)vaddr + 1023;
-	} else {
-		vaddr = kmap(pages[taipage_num]);
-		tai_vaddr = (int *)vaddr + taidata_num / 4 - 1;
-	}
-	if (flag == 1) {
-		pr_info("src user memory check\n");
-		pr_info("tai data is %d\n", *tai_vaddr);
-	} else {
-		pr_info("dst user memory check\n");
-		pr_info("tai data is %d\n", *tai_vaddr);
-	}
-	if (taidata_num == 0)
-		kunmap(pages[taipage_num - 1]);
-	else
-		kunmap(pages[taipage_num]);
-	return 0;
-}
-#endif
 
 static int rga2_MapUserMemory(struct page **pages, uint32_t *pageTable,
 			      unsigned long Memory, uint32_t pageCount,
@@ -606,14 +523,6 @@ static int rga2_mmu_flush_cache(struct rga2_reg *reg, struct rga2_req *req)
 						 MMU_Base,
 						 DstStart, DstPageCount, 1,
 						 MMU_MAP_CLEAN | MMU_MAP_INVALID);
-#if RGA2_DEBUGFS
-			if (RGA2_CHECK_MODE)
-				rga2_UserMemory_cheeck(&pages[0],
-						       req->dst.vir_w,
-						       req->dst.vir_h,
-						       req->dst.format,
-						       2);
-#endif
 		}
 		if (ret < 0) {
 			pr_err("rga2 unmap dst memory failed\n");
@@ -714,12 +623,6 @@ static int rga2_mmu_info_BitBlt_mode(struct rga2_reg *reg, struct rga2_req *req)
 			ret = rga2_MapUserMemory(&pages[0], &MMU_Base[0],
 						 Src0Start, Src0PageCount,
 						 0, MMU_MAP_CLEAN);
-#if RGA2_DEBUGFS
-		if (RGA2_CHECK_MODE)
-			rga2_UserMemory_cheeck(&pages[0], req->src.vir_w,
-					       req->src.vir_h, req->src.format,
-					       1);
-#endif
 		}
 
 		if (ret < 0) {
@@ -769,14 +672,7 @@ static int rga2_mmu_info_BitBlt_mode(struct rga2_reg *reg, struct rga2_req *req)
 						 + Src0MemSize + Src1MemSize,
 						 DstStart, DstPageCount, 1,
 						 MMU_MAP_CLEAN | MMU_MAP_INVALID);
-#if RGA2_DEBUGFS
-			if (RGA2_CHECK_MODE)
-				rga2_UserMemory_cheeck(&pages[0],
-						       req->src.vir_w,
-						       req->src.vir_h,
-						       req->src.format,
-						       2);
-#endif
+
 			/* Save the physical address of dst to invalid cache */
 			reg->MMU_base = (MMU_Base + Src0MemSize + Src1MemSize);
 			reg->MMU_count = DstPageCount;
@@ -785,12 +681,7 @@ static int rga2_mmu_info_BitBlt_mode(struct rga2_reg *reg, struct rga2_req *req)
 						 + Src0MemSize + Src1MemSize,
 						 DstStart, DstPageCount,
 						 1, MMU_MAP_INVALID);
-#if RGA2_DEBUGFS
-		if (RGA2_CHECK_MODE)
-			rga2_UserMemory_cheeck(&pages[0], req->src.vir_w,
-					       req->src.vir_h, req->src.format,
-					       2);
-#endif
+
 			/* Save the physical address of dst to invalid cache */
 			reg->MMU_base = (MMU_Base + Src0MemSize + Src1MemSize);
 			reg->MMU_count = DstPageCount;
@@ -904,12 +795,6 @@ static int rga2_mmu_info_color_palette_mode(struct rga2_reg *reg, struct rga2_re
             } else {
                 ret = rga2_MapUserMemory(&pages[0], &MMU_Base[0],
                 SrcStart, SrcMemSize, 0, MMU_MAP_CLEAN);
-#if RGA2_DEBUGFS
-                if (RGA2_CHECK_MODE)
-                rga2_UserMemory_cheeck(&pages[0], req->src.vir_w,
-                req->src.vir_h, req->src.format,
-                1);
-#endif
             }
             if (ret < 0) {
                 pr_err("rga2 map src0 memory failed\n");
@@ -929,12 +814,6 @@ static int rga2_mmu_info_color_palette_mode(struct rga2_reg *reg, struct rga2_re
             } else {
                 ret = rga2_MapUserMemory(&pages[0], MMU_Base + SrcMemSize,
                 DstStart, DstMemSize, 1, MMU_MAP_INVALID);
-#if RGA2_DEBUGFS
-                if (RGA2_CHECK_MODE)
-                rga2_UserMemory_cheeck(&pages[0], req->dst.vir_w,
-                req->dst.vir_h, req->dst.format,
-                1);
-#endif
             }
             if (ret < 0) {
                 pr_err("rga2 map dst memory failed\n");

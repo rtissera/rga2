@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#ifndef __RGA_API_H__
-#define __RGA_API_H__
+#ifndef __RGA2_DRV_H__
+#define __RGA2_DRV_H__
 
 #include <linux/miscdevice.h>
 

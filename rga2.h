@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#ifndef _RGA_DRIVER_H_
-#define _RGA_DRIVER_H_
+#ifndef _RGA2_H_
+#define _RGA2_H_
 
 #include <linux/mutex.h>
 #include <linux/scatterlist.h>
@@ -725,9 +725,6 @@ struct rga2_service_info {
     struct mutex	mutex;	// mutex
 };
 
-#define RGA2_TEST_CASE 0
-#define RGA2_DEBUGFS 1
-
 //General Registers
 #define RGA2_SYS_CTRL             0x000
 #define RGA2_CMD_CTRL             0x004
@@ -741,4 +738,4 @@ struct rga2_service_info {
 #define RGA2_MODE_CTRL            0x100
 #define RGA_BLIT_COMPLETE_EVENT 1
 
-#endif /*_RK29_IPP_DRIVER_H_*/
+#endif /*_RGA2_H_*/
