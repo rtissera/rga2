@@ -61,8 +61,6 @@
 #define DRIVER_NAME		"rga2"
 #define RGA2_VERSION   "2.000"
 
-ktime_t rga2_start;
-ktime_t rga2_end;
 int rga2_flag;
 int first_RGA2_proc;
 static int rk3368;
@@ -270,11 +268,7 @@ static void rga2_power_off_work(struct work_struct *work)
 static int rga2_flush(rga2_session *session, unsigned long arg)
 {
 	int ret = 0;
-	int ret_timeout;
-	ktime_t start = ktime_set(0, 0);
-	ktime_t end = ktime_set(0, 0);
-
-	ret_timeout = wait_event_timeout(session->wait, atomic_read(&session->done), RGA2_TIMEOUT_DELAY);
+	int ret_timeout = wait_event_timeout(session->wait, atomic_read(&session->done), RGA2_TIMEOUT_DELAY);
 
 	if (unlikely(ret_timeout < 0)) {
 		u32 i;
@@ -284,7 +278,6 @@ static int rga2_flush(rga2_session *session, unsigned long arg)
 		pr_err("flush pid %d wait task ret %d\n", session->pid, ret);
 		pr_err("interrupt = %x status = %x\n", rga2_read(RGA2_INT),
 		       rga2_read(RGA2_STATUS));
-		rga2_printf_cmd_buf(p);
 		DBG("rga2 CMD\n");
 		for (i = 0; i < 7; i++)
 			DBG("%.8x %.8x %.8x %.8x\n",
@@ -303,7 +296,6 @@ static int rga2_flush(rga2_session *session, unsigned long arg)
 		       session->pid, atomic_read(&session->task_running));
 		pr_err("interrupt = %x status = %x\n",
 		       rga2_read(RGA2_INT), rga2_read(RGA2_STATUS));
-		rga2_printf_cmd_buf(p);
 		DBG("rga2 CMD\n");
 		for (i = 0; i < 7; i++)
 			DBG("%.8x %.8x %.8x %.8x\n",
@@ -912,7 +904,6 @@ retry:
 			ret_timeout);
 		pr_err("interrupt = %x status = %x\n",
 		       rga2_read(RGA2_INT), rga2_read(RGA2_STATUS));
-		rga2_printf_cmd_buf(p);
 		DBG("rga2 CMD\n");
 		for (i = 0; i < 7; i++)
 			DBG("%.8x %.8x %.8x %.8x\n",
@@ -931,7 +922,6 @@ retry:
 			session->pid, atomic_read(&session->task_running));
 		pr_err("interrupt = %x status = %x\n",
 		       rga2_read(RGA2_INT), rga2_read(RGA2_STATUS));
-		rga2_printf_cmd_buf(p);
 		DBG("rga2 CMD\n");
 		for (i = 0; i < 7; i++)
 			DBG("%.8x %.8x %.8x %.8x\n",
