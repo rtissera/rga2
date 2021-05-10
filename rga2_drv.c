@@ -635,7 +635,6 @@ static int rga2_get_img_info(rga_img_info_t *img,
 	u32 vir_w, vir_h;
 	int yrgb_addr = -1;
 	int ret = 0;
-	void *vaddr;
 
 	rga_dev = rga2_drvdata->dev;
 	yrgb_addr = (int)img->yrgb_addr;
